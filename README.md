@@ -26,7 +26,7 @@ This project allows you to **create, update, delete, and query tables** with pro
 This project supports **foreign key relationships** between tables and enforces proper constraints.  
 Here’s an example workflow with **two tables**:
 
----
+
 
 #### Example Tables
 
@@ -39,7 +39,6 @@ Here’s an example workflow with **two tables**:
    - `emp_name` → `string` → NOT NULL  
    - `dept_id` → `int` → **FOREIGN KEY REFERENCES departments(dept_id)**  
 
----
 
 #### Behavior Overview
 
@@ -49,7 +48,6 @@ Here’s an example workflow with **two tables**:
 | **Update `dept_id` in departments** | 🔄 Cascade: Updates the corresponding `dept_id` in `employees` table |
 | **delete `employees` by dept_id**   | ⚪ Set NULL: If the referenced department is deleted, the FK in employees becomes NULL |
 
----
 
  
 
@@ -102,7 +100,7 @@ chmod +x main
       All data is stored as CSV files inside your database folder, with metadata files to track structure and constraints.
 ----
 
-Project DBMS/
+## Project DBMS/
 ```
 ├─ main                        # Main script to run the GUI DBMS
 ├─ 5_create_table              # Script to create tables
