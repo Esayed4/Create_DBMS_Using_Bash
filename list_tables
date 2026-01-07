@@ -1,7 +1,22 @@
-#! /usr/bin/bash
-list_tables(){
-		table_path=$1					#here
-		echo "Available tables:"
-		ls $table_path | grep -v '^meta_'
-		}
-list_tables
+#!/usr/bin/bash
+
+list_tables() {
+
+    table_path="$1"
+
+    tables=$(ls "$table_path" 2>/dev/null | grep -v '^meta_')
+
+    if [[ -z "$tables" ]]; then
+        zenity --error --text="No tables found."
+        return 1
+    fi
+
+    zenity --list \
+        --title="Available Tables" \
+        --column="Tables" \
+        --width=300 \
+        --height=300 \
+        $tables
+}
+
+list_tables "$1"

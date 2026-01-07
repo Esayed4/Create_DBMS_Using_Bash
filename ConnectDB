@@ -1,50 +1,74 @@
-#! /usr/bin/bash
+#!/usr/bin/bash
 
-Connect_DB(){
-      DBPath="./DBs/"
-      user=`whoami`
-      read -p "enter DB name : " dbname;
+Connect_DB() {
+    DBPath="./DBs/"
+    user=$(whoami)
+    
+    # Get DB name with Zenity
+    dbname=$(zenity --entry \
+        --title="Connect to Database" \
+        --text="Enter database name:" \
+        --width=400 --height=150)
+    
+    if [[ -z "$dbname" ]]; then
+        zenity --error --text="Operation cancelled." --title="Cancelled"
+        return
+    fi
 
-#  check if he owns the same db     
-	if [[ -d $DBPath/$user"_"$dbname ]]
-		then 
-			echo 'knew you are connected to db :' $dbname
-			db_path=$DBPath/$user"_"$dbname        
-			echo $(pwd)
-
-                select choice in createtable  InsertInto SelectFrom  DropTable DeleteFrom UpdateTable BackToMainMenu
-                do 
-                    
-                    case $choice in
-                        "createtable")
-					./5_create_table   $db_path
-                             ;;
-                        "InsertInto")
-					./insert  $db_path
-                             ;;
-                        "SelectFrom")
-					./select  $db_path
-                             ;;
-                        "DropTable")
-                            ./drop_table  $db_path
-                            ;;
-                        "DeleteFrom")
-                            ./delete_from_atable  $db_path
-                            ;;
-                        "UpdateTable")
-                            ./update_table $db_path
-                            ;;
-                        "Exit")
-                            echo "Exiting..."
-                            break	
-                            ;;
-                    esac
-                done
-	
-
-		
-	fi
-
+    # Check if user owns the DB
+    if [[ -d "$DBPath/${user}_${dbname}" ]]; then
+        zenity --info --text="Connected to database: $dbname" --title="Connected"
+        db_path="$DBPath/${user}_${dbname}"
+        
+        # Table operations menu loop
+        while true; do
+            choice=$(zenity --list \
+                --title="TABLE MENU - $dbname" \
+                --text="Select table operation:" \
+                --column="Choice" \
+                "1) CreateTable" \
+                "2) InsertInto" \
+                "3) SelectFrom" \
+                "4) DropTable" \
+                "5) DeleteFrom" \
+                "6) UpdateTable" \
+                "7) ListTables" \
+                "8) BackToMainMenu" \
+                --width=450 --height=600 \
+                --print-column=1)
+            
+            case "$choice" in
+                "1) CreateTable")
+                    ./5_create_table "$db_path"
+                    ;;
+                "2) InsertInto")
+                    ./insert "$db_path"
+                    ;;
+                "3) SelectFrom")
+                    ./select "$db_path"
+                    ;;
+                "4) DropTable")
+                    ./drop_table "$db_path"
+                    ;;
+                "5) DeleteFrom")
+                    ./delete_from_table "$db_path"
+                    ;;
+                "6) UpdateTable")
+                    ./update_table "$db_path"
+                    ;;
+                "7) ListTables")
+                    ./list_tables "$db_path"
+                    ;;
+                "8) BackToMainMenu"|"")
+                    zenity --info --text="Returning to main menu..." --title="Back"
+                    break
+                    ;;
+            esac
+        done
+        
+    else
+        zenity --error --text="No DB available for you with name '$dbname'." --title="Access Denied"
+    fi
 }
 
 Connect_DB

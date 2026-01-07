@@ -1,28 +1,45 @@
-#! /usr/bin/bash
-    
-DropDB() { 
+#!/usr/bin/bash
+
+DropDB() {
     DBPath="./DBs"
     user=$(whoami)
-    read -p "Enter DB name: " dbname
-
+    
+    # Get DB name with Zenity
+    dbname=$(zenity --entry \
+        --title="Drop Database" \
+        --text="Enter database name to delete:" \
+        --width=400 --height=150)
+    
+    if [[ -z "$dbname" ]]; then
+        zenity --error --text="Operation cancelled." --title="Cancelled"
+        return
+    fi
+    
     fullPath="$DBPath/${user}_${dbname}"
-
+    
     if [[ -d "$fullPath" ]]; then
-        read -p "Are you sure you want to delete DB $dbname ? (y/n): " delete
-
-        if [[ "$delete" == "y" ]]; then
+        # Confirmation dialog
+        if zenity --question \
+            --title="Confirm Delete" \
+            --text="Are you sure you want to delete DB '$dbname'?\nThis cannot be undone!" \
+            --width=400 --height=150; then
+            
             rm -r "$fullPath"
-            echo "Database deleted."
+            zenity --info \
+                --title="Success" \
+                --text="Database '$dbname' deleted." \
+                --width=350 --height=120
         else
-            echo "Operation cancelled."
+            zenity --info \
+                --text="Operation cancelled." \
+                --title="Cancelled"
         fi
     else
-        echo "I cannot find this DB."
+        zenity --error \
+            --title="Database Not Found" \
+            --text="Cannot find database '$dbname'." \
+            --width=350 --height=120
     fi
 }
 
-
-
 DropDB
-
-

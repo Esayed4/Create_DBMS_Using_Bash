@@ -1,86 +1,102 @@
 #!/bin/bash
 
 select_data() {
-    table_path=$1
-    echo "=== SELECT DATA ==="
-    
+
+    table_path="$1"
+
     while true; do
-        # Show tables
-        tables=$(ls "$table_path" | grep -v '^meta_')           #here
-        [[ -z "$tables" ]] && { echo "No tables!"; return 1; }
-        
-        echo "Available tables to select from:"
-        echo "$tables"
-        echo
-        
-        read -p "Table name: " table
-        [[ ! -f "$table_path"/"$table" ]] && { echo "Table not found!"; continue; }   #here
-        
-        # Simple menu
-        echo
-        echo "1 - select all data"
-        echo "2 - select specific row by PRIMARY KEY"
-        echo
-        read -p "Choice (1 or 2): " choice
-        
+
+        tables=$(ls "$table_path" 2>/dev/null | grep -v '^meta_')
+
+        if [[ -z "$tables" ]]; then
+            zenity --error --text="No tables found."
+            return 1
+        fi
+
+        table=$(echo "$tables" | zenity --list \
+            --title="Select Table" \
+            --column="Tables" \
+            --height=300 \
+            --width=300)
+
+        [[ -z "$table" ]] && return 0
+
+        if [[ ! -f "$table_path/$table" ]]; then
+            zenity --error --text="Table not found!"
+            continue
+        fi
+
+        choice=$(zenity --list \
+            --title="Select Operation" \
+            --column="Option" --column="Description" \
+            1 "Select all data" \
+            2 "Select row by PRIMARY KEY")
+
+        [[ -z "$choice" ]] && continue
+
         if [[ "$choice" == "1" ]]; then
-            # Show all
-            echo
-            echo "=== $table ==="
-            cat -n "$table_path"/"$table"             #here
-            
+
+	    zenity --text-info \
+		--title="Table: $table" \
+		--width=700 \
+		--height=400 \
+		< <(cat -n "$table_path/$table")
+
+
+
         elif [[ "$choice" == "2" ]]; then
-            # Find by PK
-            meta="$table_path"/"meta_$table"              #here
+
+            meta="$table_path/meta_$table"
+
             if [[ ! -f "$meta" ]]; then
-                echo "No metadata - cannot find PK"
+                zenity --error --text="No metadata found. Cannot detect PRIMARY KEY."
                 continue
             fi
-            
-            # Get PK column
-            pk=$(awk -F',' '$4~/PRIMARY KEY/{print $2; exit}' "$meta" 2>/dev/null)
+
+            pk=$(awk -F',' '$4~/PRIMARY KEY/{print $2; exit}' "$meta")
+
             if [[ -z "$pk" ]]; then
-                echo "No PRIMARY KEY in this table!"
+                zenity --error --text="No PRIMARY KEY in this table."
                 continue
             fi
-            
-            echo
-            echo "Find by $pk:"
-            read -p "Enter value of the PRIMARY KEY: " val
-            
-            # Find PK position
-            header=$(head -1 "$table_path"/"$table")                #here
+
+            val=$(zenity --entry \
+                --title="Search by Primary Key" \
+                --text="Enter value for PRIMARY KEY ($pk):")
+
+            [[ -z "$val" ]] && continue
+
+            header=$(head -1 "$table_path/$table")
             IFS=',' read -r -a cols <<< "$header"
+
             pos=0
             for i in "${!cols[@]}"; do
                 [[ "${cols[i]}" == "$pk" ]] && { pos=$((i+1)); break; }
             done
-            
-            # Search
-            echo
-            # Find which line has our value in the right column
-            line_num=$(awk -F',' -v col="$pos" -v val="$val" '$col == val {print NR}' "$table_path"/"$table")       #here
+
+            [[ "$pos" -eq 0 ]] && {
+                zenity --error --text="PRIMARY KEY column not found."
+                continue
+            }
+
+            line_num=$(awk -F',' -v col="$pos" -v val="$val" '$col == val {print NR}' "$table_path/$table")
 
             if [[ -n "$line_num" ]]; then
-                echo "Result:"
-                echo "$header"
-                echo "--------"
-                # Get the specific line
-                sed -n "${line_num}p" "$table_path"/"$table"
+                result=$(sed -n "${line_num}p" "$table_path/$table")
+                zenity --info \
+                    --title="Result Found" \
+                    --text="Header:\n$header\n\nRow:\n$result"
             else
-                echo "Not found!"
+                zenity --warning --text="No matching row found."
             fi
-            
-            
         else
-            echo "Invalid choice! Only 1 or 2."
+            zenity --error --text="Invalid choice."
             return 1
         fi
-        
-        echo
-        read -p "Select another? (y/n): " more
-        [[ "$more" == "y" ]] || break
+
+        zenity --question --text="Do you want to select again?"
+        [[ $? -ne 0 ]] && break
     done
 }
 
-select_data $1
+select_data "$1"

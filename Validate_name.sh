@@ -1,22 +1,26 @@
-#! /usr/bin/bash
-function validate_name(){
-local name="$1"
-    # Combined validation: non-empty + starts with letter/underscore + only allowed chars
+#!/usr/bin/bash
+
+function validate_name() {
+
+    local name="$1"
+
+    # Format validation
     if [[ ! "$name" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
-        echo "Error: name must:"
-        echo "  - Not be empty"
-        echo "  - Start with a letter or underscore"
-        echo "  - Contain only letters, numbers, and underscores"
+        zenity --error --title="Invalid Name" --text="Invalid name:\n
+• Must not be empty
+• Must start with a letter or underscore
+• Can contain only letters, numbers, and underscores"
         return 1
     fi
 
-    # Check for SQL reserved words (I just used some of the reserved keywords, not all of them)
+    # Reserved words check
     local reserved_words="select insert update delete create drop alter table database"
+
     if [[ " $reserved_words " =~ " ${name,,} " ]]; then
-        echo "Error: '$name' is a reserved word"
+        zenity --error --title="Reserved Word" \
+        --text="Error: '$name' is a reserved SQL keyword."
         return 1
     fi
 
     return 0
-
 }

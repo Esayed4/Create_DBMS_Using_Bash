@@ -1,37 +1,46 @@
-#! /usr/bin/bash
+#!/usr/bin/bash
 
-
-
+# Ensure DBs directory exists
 if [[ ! -d "./DBs" ]]; then
     echo "Creating DBs directory..."
-    mkdir  DBs 
+    mkdir DBs 
     echo "DBs created"; 
     chmod 777 ./DBs
 else
-	echo "i found the DBMS Dir"
+    echo "Found the DBMS Dir"
 fi
 
+while true; do
+choice=$(zenity --list \
+    --title="Main Menu" \
+    --text="Select an option:" \
+    --column="Option" "1) CreateDB" "2) ConnectDB" "3) ListDB" "4) DropDB" "5) Exit" \
+    --width=400 --height=800 \
+    --print-column=1)
 
-select choice in CreateDB
-do 
-	 
-	case $choice in
-		"CreateDB")
-			./CreateDB
-			;;
-		"ConnectDB")
-			./ConnectDB
-			;;
-		"ListDB")
-			./ListDB
-			;;
-		"DropDB")
-			./DropDB
-			;;
-		"Exit")
-			echo "Exiting..."
-			break	
-			;;
-	esac
+    case "$choice" in
+        "1) CreateDB")
+            ./CreateDB
+            ;;
+        "2) ConnectDB")
+            ./ConnectDB
+            ;;
+        "3) ListDB")
+            ./ListDB
+            ;;
+        "4) DropDB")
+            ./DropDB
+            ;;
+        "5) Exit")
+            zenity --info --text="Exiting..." --title="Goodbye"
+            break
+            ;;
+        "")
+            # User cancelled/closed dialog
+            zenity --info --text="Exiting..." --title="Goodbye"
+            break
+            ;;
+    esac
 done
 
+echo "Goodbye"

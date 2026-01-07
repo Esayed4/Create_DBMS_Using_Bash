@@ -1,43 +1,56 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
 delete_table() {
-    read -p "Enter the table name to delete: " table_name
-    meta_path=$1
-    meta_files="$meta_path/meta_*"
-    table_path=$1"/"
+    meta_path="$1"
+    table_path="$1/"
+    
+    # Get table name with Zenity
+    table_name=$(zenity --entry \
+        --title="Delete Table" \
+        --text="Enter table name to delete:" \
+        --width=400 --height=150)
+    
     if [[ -z "$table_name" ]]; then
-        echo "Error: Table name is required."
+        zenity --error --text="Error: Table name is required." --title="Error"
         return 1
     fi
 
     if [[ ! -f "$table_path$table_name" ]]; then
-        echo "Error: Table '$table_name' does not exist."
+        zenity --error --text="Error: Table '$table_name' does not exist." --title="Not Found"
         return 1
     fi
-
     
-    for meta_tables in $meta_files; do
-
-        echo "Processing file: $meta_tables"
-        col_num=$(grep -w "FOREIGN KEY REFERENCES $table_name" "$meta_tables" | awk -F',' '{print $1}' | grep -o '[0-9]\+')
-        echo "$col_num" 
-
-        if [[ ! -z "$col_num" ]] then
-            echo "Cannot delete table '$table_name' as it is referenced by foreign key in table "${meta_tables#*_}
+    # Check foreign key constraints
+    meta_files="$meta_path/meta_*"
+    for meta_table in $meta_files; do
+        col_num=$(grep -w "FOREIGN KEY REFERENCES $table_name" "$meta_table" 2>/dev/null | \
+                  awk -F',' '{print $1}' | grep -o '[0-9]\+')
+        
+        if [[ -n "$col_num" ]]; then
+            ref_table="${meta_table#*_}"
+            zenity --error \
+                --text="Cannot delete table '$table_name'.\nIt is referenced by foreign key in table '$ref_table'." \
+                --title="Foreign Key Constraint"
             return 1
         fi
-
-       
-
-        
     done
 
-
-
-    rm -r "$table_path$table_name"
-    rm -r "$meta_path/meta_$table_name"
-    echo "Table '$table_name' deleted successfully."
-    return 0
+    # Confirmation dialog
+    if zenity --question \
+        --title="Confirm Delete Table" \
+        --text="Delete table '$table_name'?\nThis cannot be undone!" \
+        --width=400 --height=150; then
+        
+        rm -r "$table_path$table_name"
+        rm -r "$meta_path/meta_$table_name"
+        zenity --info \
+            --text="Table '$table_name' deleted successfully." \
+            --title="Success"
+        return 0
+    else
+        zenity --info --text="Table deletion cancelled." --title="Cancelled"
+        return 1
+    fi
 }
 
-delete_table $1
+delete_table "$1"

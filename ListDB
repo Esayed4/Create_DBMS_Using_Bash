@@ -3,27 +3,29 @@
 ListDBs() {
     path="./DBs"
     user=$(whoami)
-    myGroups=`echo $(groups $user) | cut -d: -f2`
-
-    echo "Directories you are in the group of:"
-    echo $myGroups
-    for dir in "$path"/*; do
-	i=0
-        if [[ -d "$dir" ]]; then
-            # Get the group of the directory
-            dirGroup=$(ls -ld "$dir" | tr -s ' ' | cut -d' ' -f4)
-
-        	for groupg in $myGroups;
-		do
-			if [[ $groupg == $dirGroup  ]]
-				then
-					print=$(basename "$dir" | cut -d'_' -f2)
-					echo  $print '------>  group of : '  $groupg
-			fi 
-		done
+    user_dbs=()
+    
+    # Find user's databases
+    for d in "$path"/${user}_*; do
+        if [[ -d "$d" ]]; then
+            dirname=$(basename "$d")
+            clean_name="${dirname#*_}"
+            user_dbs+=("$clean_name")
         fi
     done
-
+    
+    # Show with Zenity
+    if [[ ${#user_dbs[@]} -gt 0 ]]; then
+        zenity --info \
+            --title="Your Databases" \
+            --text="Your databases:\n$(printf '%s\n' "${user_dbs[@]}")" \
+            --width=400 --height=300
+    else
+        zenity --info \
+            --title="No Databases" \
+            --text="You do not have any databases." \
+            --width=350 --height=150
+    fi
 }
 
 ListDBs

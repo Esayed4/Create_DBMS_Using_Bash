@@ -1,218 +1,143 @@
-#! /usr/bin/bash
-source ./validate_name.sh 
+#!/usr/bin/bash
+
+source ./validate_name.sh
 source ./validate_number.sh
 source ./foreign_key_validation.sh
 
-function create_table() { 
-	
-	table_path=$1
- 	# Array to track used column names
-    	declare -a used_column_names=()
+create_table() {
 
-	while true;
-       	do
-		#insert table name
-		read -p "Enter the name of the table: " tablename
-        
-		
+    table_path="$1"
+    declare -a used_column_names=()
+    pk_column=""
 
-		#validate table name
-		if validate_name "$tablename"; then
-            		if [ -f "$table_path"/"$tablename" ]; then
-                		echo "Table '$tablename' already exists!"
-            		else
-                		echo "Good job, you entered a valid table name!"
-				break 
-            		fi
-        	else
-            		echo "Please try again."
-        	fi
-    	done
-      
-	#Creating the table and the metadata table
-	touch  "$table_path"/"$tablename"
-	touch "$table_path"/"meta_$tablename"
+    ################ TABLE NAME ################
+    while true; do
 
-	# Write table header to metadata file
-	echo "Table: $tablename" >> "$table_path"/"meta_$tablename"
-    	echo "Created: $(date)" >> "$table_path"/"meta_$tablename"
-    	echo "Columns:" >> "$table_path"/"meta_$tablename"
-    	echo "==========" >> "$table_path"/"meta_$tablename"
-        echo "Column_No,Column_name,Data_type,Constraints" >> "$table_path"/"meta_$tablename"
-	echo "-----------------------------" >> "$table_path"/"meta_$tablename"
-	# Get and validate number of columns
-    	while true; 
-	do
-        	read -p "Enter the number of columns: " No_columns
-        
-        	if validate_number "$No_columns"; then
-            		break  # Valid number, exit loop
-        	else
-            		echo "Please try again."
-        	fi
-    	done
-	
-	for ((i=1; i<=No_columns; i++))
-    	do
-        	echo
-        	echo "=== Column $i ==="
+        tablename=$(zenity --entry \
+            --title="Create Table" \
+            --text="Enter the name of the table:")
 
-		# Get column name with validation and check duplicate column name
-        	while true; do
-            	read -p "Enter name of column number $i: " column_name
-            
-            	# Validate column name format
-            	if ! validate_name "$column_name"; then
-                	echo "Non-valid input!"
-                	continue
-            	fi
-            
-            	# Check for duplicate column name
-            	if [[ " ${used_column_names[@]} " =~ " ${column_name} " ]]; then
-                	echo "Error: Column name '$column_name' already used!"
-                	echo "   Already used column names: ${used_column_names[*]}"
-            	else
-                	# Add to used names array
-                	used_column_names+=("$column_name")
-                	break
-            	fi
-        	done
-		
-        	
-		# Get data type with options
-        	PS3="Select data type for '$column_name': "
-        	select data_type in "int" "string"
-        	do
-            		if [ -n "$data_type" ]; then
-                		break
-            		else
-                		echo "Invalid selection. Please choose 1-5."
-            		fi
-        	done
-		
-		#Get the constraints
-		constraints=""
-        
-        	# Ask about PRIMARY KEY
-        	if [ -z "$pk_column" ]; then
-            		read -p "Make '$column_name' PRIMARY KEY? (y/n): " make_pk
-            		
-			#convert the input to lower case
-			if [[ "${make_pk,,}" == "y" || "${make_pk,,}" == "yes" ]]; then
-    				constraints="PRIMARY KEY"
-    				pk_column="$column_name"
-			fi
-			
-        	else
-            		echo "Note: PRIMARY KEY already set on column '$pk_column'"
-        	fi
-        
-        	# Other constraints (if not already PK)
-        	if [[ "$constraints" != "PRIMARY KEY" ]]; then
-            		echo "Select additional constraints:"
-            		echo "1) NOT NULL"
-            		echo "2) UNIQUE"
-            		#echo "3) DEFAULT value"
-            		echo "3) FOREIGN KEY"
-            		echo "4) None"
-            		
-			while true; do
-    				read -p "Choose option (1-4): " choice
+        [[ -z "$tablename" ]] && continue
 
-    				if [[ "$choice" =~ ^[1-4]$ ]]; then
-        				break  # Valid choice, exit loop
-    				else
-        				echo "Invalid choice! Please enter a number between 1 and 4."
-    				fi
-			done
-            
-            		case $choice in
-                		1) 
-                    			if [ -z "$constraints" ]; then
-                        			constraints="NOT NULL"
-                    			else
-                        			constraints="$constraints, NOT NULL"
-                    			fi
-                    			;;
-                		2)
-                    			if [ -z "$constraints" ]; then
-                        			constraints="UNIQUE"
-                    			else
-                        			constraints="$constraints, UNIQUE"
-                    			fi
-                    			;;
-                	# 	3)
-                    # 			read -p "Enter default value: " default_value
-                    # 				if [ "$data_type" = "int" ]; then
-    				# 		# Integer validation
-    				# 			if [[ "$default_value" =~ ^[0-9]+$ ]]; then
-        			# 				echo "Valid integer default"
-    				# 			else
-        			# 				echo "Error: '$default_value' is not a valid integer"
-        			# 				echo "Please enter numbers only (e.g., 0, 42, 100)"
-        			# 				read -p "Enter valid integer default or any other thing to exit: " default_value
-        			# 				# Re-validate
-					# 			if [[ ! "$default_value" =~ ^[0-9]+$ ]]; then
-    				# 					echo "Error: '$default_value' is not a valid integer"
-    				# 					echo "No default value will be set for this column"
-    				# 					default_value=""
-					# 			fi
-					# 		fi
+        if validate_name "$tablename"; then
+            if [[ -f "$table_path/$tablename" ]]; then
+                zenity --error --text="Table '$tablename' already exists!"
+            else
+                zenity --info --text="Valid table name."
+                break
+            fi
+        else
+            zenity --error --text="Invalid table name. Please try again."
+        fi
+    done
 
-					# 	else
-    				# 		# String validation (always valid, but ensure quotes)
-    				# 			echo "String default accepted"
-					# 	fi
-						
-					
-					# # Only add DEFAULT if we have a valid value
-					# if [ -n "$default_value" ]; then
-    				# 		if [ -z "$constraints" ]; then
-        			# 			constraints="DEFAULT '$default_value'"
-    				# 		else
-        			# 			constraints="$constraints, DEFAULT '$default_value'"
-    				# 		fi
-					# fi
-                    # 			;;
-                		3)	
-					echo "Note: Foreign key must reference a PRIMARY KEY column in another table"
-					fk_constraint=$(get_foreign_key "$column_name" "$data_type" "$table_path")
+    ################ CREATE FILES ################
+    touch "$table_path/$tablename"
+    touch "$table_path/meta_$tablename"
 
-                    			if [ $? -eq 0 ] && [ -n "$fk_constraint" ]; then
-                        			if [ -z "$constraints" ]; then
-                            				constraints="$fk_constraint"
-                        			else
-                            				constraints="$constraints, $fk_constraint"
-                        			fi
-                        			echo "Foreign key added successfully!"
-                   			 else
-                        			echo "Foreign key NOT added"
-                    			fi
-                    			;;
+    {
+        echo "Table: $tablename"
+        echo "Created: $(date)"
+        echo "Columns:"
+        echo "=========="
+        echo "Column_No,Column_name,Data_type,Constraints"
+        echo "-----------------------------"
+    } >> "$table_path/meta_$tablename"
 
-            		esac
-        	fi
-        
-        	# Set to None if empty
-        	[ -z "$constraints" ] && constraints="None"
+    ################ NUMBER OF COLUMNS ################
+    while true; do
+        No_columns=$(zenity --entry \
+            --title="Number of Columns" \
+            --text="Enter number of columns:")
 
-		# Append to metadata file
-        	echo "Column$i,$column_name,$data_type,$constraints" >> "$table_path"/"meta_$tablename"
-        	echo "Column '$column_name' added successfully!"
+        if validate_number "$No_columns"; then
+            break
+        else
+            zenity --error --text="Invalid number."
+        fi
+    done
 
-	done
+    ################ COLUMNS LOOP ################
+    for ((i=1; i<=No_columns; i++)); do
 
+        ################ COLUMN NAME ################
+        while true; do
+            column_name=$(zenity --entry \
+                --title="Column $i" \
+                --text="Enter name of column $i:")
 
-	# ===== ADD COLUMN NAMES TO DATA FILE =====
-    	# Use the existing used_column_names array
-    	echo "Writing column names to data file..."
+            if ! validate_name "$column_name"; then
+                zenity --error --text="Invalid column name."
+                continue
+            fi
 
-    	# Write column names as CSV header
-    	echo "${used_column_names[@]}" | tr ' ' ',' > "$table_path"/"$tablename"
-	#echo "$(IFS=','; echo "${used_column_names[*]}")" > "$tablename"	this another way
+            if [[ " ${used_column_names[*]} " =~ " $column_name " ]]; then
+                zenity --error --text="Column name already used!"
+            else
+                used_column_names+=("$column_name")
+                break
+            fi
+        done
 
-    	echo "Column names added to '$table_path/$tablename': $(IFS=','; echo "${used_column_names[*]}")"
-    	echo "Metadata saved to '$table_path/meta_$tablename'"
-  		
-} 
-create_table $1
+        ################ DATA TYPE ################
+        data_type=$(zenity --list \
+            --title="Data Type" \
+            --column="Type" \
+            int string)
+
+        ################ PRIMARY KEY ################
+        constraints=""
+
+        if [[ -z "$pk_column" ]]; then
+            zenity --question --text="Make '$column_name' PRIMARY KEY?"
+            if [[ $? -eq 0 ]]; then
+                constraints="PRIMARY KEY"
+                pk_column="$column_name"
+            fi
+        fi
+
+        ################ OTHER CONSTRAINTS ################
+        if [[ "$constraints" != "PRIMARY KEY" ]]; then
+
+            choice=$(zenity --list \
+                --title="Constraints" \
+                --column="Option" --column="Constraint" \
+                1 "NOT NULL" \
+                2 "UNIQUE" \
+                3 "FOREIGN KEY" \
+                4 "None")
+
+            case "$choice" in
+                1) constraints="NOT NULL" ;;
+                2) constraints="UNIQUE" ;;
+                3)
+                    zenity --info --text="Foreign key must reference a PRIMARY KEY"
+                    fk_constraint=$(get_foreign_key "$column_name" "$data_type" "$table_path")
+                    if [[ $? -eq 0 && -n "$fk_constraint" ]]; then
+                        constraints="$fk_constraint"
+                        zenity --info --text="Foreign key added."
+                    else
+                        zenity --warning --text="Foreign key not added."
+                    fi
+                    ;;
+                4) constraints="None" ;;
+            esac
+        fi
+
+        [[ -z "$constraints" ]] && constraints="None"
+
+        ################ SAVE METADATA ################
+        echo "Column$i,$column_name,$data_type,$constraints" \
+            >> "$table_path/meta_$tablename"
+
+    done
+
+    ################ WRITE HEADER ################
+    echo "${used_column_names[*]}" | tr ' ' ',' > "$table_path/$tablename"
+
+    zenity --info \
+        --title="Success" \
+        --text="Table '$tablename' created successfully!"
+}
+
+create_table "$1"

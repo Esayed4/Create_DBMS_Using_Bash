@@ -1,54 +1,65 @@
 #!/bin/bash
 
 # Function to get data type of a column
+#!/bin/bash
+
 get_column_datatype() {
-    table_path=$3               
-    
+
     local table_name="$1"
     local column_name="$2"
-        
+    local table_path="$3"
 
-    # Check if table exists first
-    if [ ! -f "$table_path"/"$table_name" ]; then                    #here
-        echo "Error: Table '$table_name' doesn't exist!" >&2
-        echo ""
+    # Check if table exists
+    if [[ ! -f "$table_path/$table_name" ]]; then
+        zenity --error \
+            --title="Table Not Found" \
+            --text="Table '$table_name' does not exist."
         return 1
     fi
 
-    # Check if metadata exists
-    if [ ! -f "$table_path"/"meta_$table_name" ]; then               #here
-        echo "Error: Metadata file missing!" >&2
-        echo "   Table '$table_name' exists but 'meta_$table_name' not found." >&2
-        echo ""
+    # Check metadata
+    if [[ ! -f "$table_path/meta_$table_name" ]]; then
+        zenity --error \
+            --title="Metadata Missing" \
+            --text="Metadata file 'meta_$table_name' not found."
         return 1
     fi
 
     # Get data type
-    local data_type=$(awk -F',' -v col="$column_name" '$2 == col {print $3}' "$table_path"/"meta_$table_name" 2>/dev/null)       #here
-    
-    if [ -z "$data_type" ]; then
-        echo "Warning: No data type found for column '$column_name'" >&2
-        echo "   Using default: 'string'" >&2
-        data_type="string"  # Default fallback
+    local data_type
+    data_type=$(awk -F',' -v col="$column_name" \
+        '$2 == col {print $3}' "$table_path/meta_$table_name")
+
+    if [[ -z "$data_type" ]]; then
+        zenity --warning \
+            --title="Column Not Found" \
+            --text="No data type found for column '$column_name'.\nUsing default: string"
+        data_type="string"
     fi
-    
+
+    # ONLY data to STDOUT
     echo "$data_type"
     return 0
-
 }
 
-# Function to validate value based on data type
+
+
+
 validate_by_datatype() {
+
     local value="$1"
     local data_type="$2"
-    
-    if [ "$data_type" = "int" ] && [ -n "$value" ]; then
+
+    if [[ "$data_type" == "int" && -n "$value" ]]; then
         if [[ ! "$value" =~ ^[0-9]+$ ]]; then
-            echo "Must be an integer!" >&2
+            zenity --error \
+                --title="Invalid Value" \
+                --text="Invalid input.\nExpected INTEGER value."
             return 1
         fi
     fi
-    
+
     return 0
 }
+
 

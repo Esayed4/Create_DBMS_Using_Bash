@@ -1,54 +1,58 @@
+#!/usr/bin/bash
+
 insert_into_table() {
 
     meta_path="$1"
     table_path="$1/"
 
-    read -p "Enter the table name to insert in: " table_name
+    # Ask for table name
+    table_name=$(zenity --entry \
+        --title="Insert Into Table" \
+        --text="Enter the table name to insert into:")
 
     if [[ -z "$table_name" ]]; then
-        echo "Error: Table name is required."
+        zenity --error --text="Table name is required."
         return 1
     fi
 
     if [[ ! -f "$table_path$table_name" ]]; then
-        echo "Error: Table '$table_name' does not exist."
+        zenity --error --text="Table '$table_name' does not exist."
         return 1
     fi
 
     col_count=$(tail -n +7 "$meta_path/meta_$table_name" | wc -l)
     declare -a row_values
 
-
-
-
-
     for ((i=1; i<=col_count; i++)); do
 
-        # Read metadata line
+        # Read metadata
         line=$(sed -n "$((6 + i))p" "$meta_path/meta_$table_name")
 
         col_name=$(echo "$line" | cut -d',' -f2)
         data_type=$(echo "$line" | cut -d',' -f3)
         constraint=$(echo "$line" | cut -d',' -f4)
 
-        read -p "Enter the value of $col_name: " new_value
+        new_value=$(zenity --entry \
+            --title="Insert Value" \
+            --text="Enter value for column: $col_name")
 
-        ############ TYPE CHECK ############
+        ################ TYPE CHECK ################
         if [[ "$data_type" == "int" && ! "$new_value" =~ ^[0-9]*$ ]]; then
-            echo "Data type of the column is INT. Please enter a valid integer."
+            zenity --error --text="Column '$col_name' must be INT."
             return 0
         fi
 
-        ############ COMMA CHECK ############
+        ################ COMMA CHECK ################
         if [[ "$new_value" == *","* ]]; then
-            echo "Value cannot contain comma."
+            zenity --error --text="Value cannot contain commas."
             return 0
         fi
 
-        ############ PRIMARY KEY ############
+        ################ PRIMARY KEY ################
         if [[ "$constraint" == *"PRIMARY KEY"* ]]; then
+
             if [[ -z "$new_value" ]]; then
-                echo "PK cannot be NULL"
+                zenity --error --text="Primary Key cannot be NULL."
                 return 0
             fi
 
@@ -57,25 +61,21 @@ insert_into_table() {
             ' "$table_path$table_name")
 
             if [[ -n "$repeat" ]]; then
-                echo "Duplication is not allowed (PRIMARY KEY)."
+                zenity --error --text="Duplicate value for PRIMARY KEY."
                 return 0
             fi
         fi
 
-        ############ FOREIGN KEY ############
-        # FOREIGN KEY check
-        if [[ "$constraint" == *"FOREIGN KEY REFERENCES"* && ! -z "$new_value" ]]; then
-            
-            # extract referenced table name
+        ################ FOREIGN KEY ################
+        if [[ "$constraint" == *"FOREIGN KEY REFERENCES"* && -n "$new_value" ]]; then
+
             pk_table_name=$(echo "$constraint" | awk '{print $4}' | cut -d'(' -f1)
 
-            # extract PK column index (your method EXACTLY as you wrote it)
             pk_col_num_t2=$(
                 grep -w "PRIMARY KEY" "${table_path}meta_${pk_table_name}" \
                 | awk -F',' '{print $1}' | grep -o '[0-9]\+'
             )
 
-            # check if the value exists in the target PK table
             search_for_new_val_in_pktable=$(
                 awk -F',' -v col="$pk_col_num_t2" -v val="$new_value" '
                     NR > 1 && $col == val { print NR }
@@ -83,25 +83,27 @@ insert_into_table() {
             )
 
             if [[ -z "$search_for_new_val_in_pktable" ]]; then
-                echo "Foreign Key Error: value '$new_value' does not exist in table '$pk_table_name'"
+                zenity --error \
+                --text="Foreign Key Error:\nValue '$new_value' does not exist in '$pk_table_name'."
                 return 0
             fi
         fi
-        ############ NOT NULL ############
+
+        ################ NOT NULL ################
         if [[ "$constraint" == *"NOT NULL"* && -z "$new_value" ]]; then
-            echo "This column does not allow NULL value."
+            zenity --error --text="Column '$col_name' cannot be NULL."
             return 0
         fi
 
-        ############ UNIQUE ############
-        if [[ "$constraint" == *"UNIQUE"* && ! -z "$new_value" ]]; then
+        ################ UNIQUE ################
+        if [[ "$constraint" == *"UNIQUE"* && -n "$new_value" ]]; then
 
             repeat=$(awk -F',' -v col="$i" -v val="$new_value" '
                 NR > 1 && $col == val { print NR }
             ' "$table_path$table_name")
 
             if [[ -n "$repeat" ]]; then
-                echo "Duplication is not allowed (UNIQUE)."
+                zenity --error --text="Duplicate value (UNIQUE constraint)."
                 return 0
             fi
         fi
@@ -110,15 +112,13 @@ insert_into_table() {
 
     done
 
-
-    ########### BUILD FINAL ROW ###########
+    ################ BUILD FINAL ROW ################
     new_row=$(printf "%s," "${row_values[@]}")
-    new_row=${new_row%,}   # remove last comma
+    new_row=${new_row%,}
 
     echo "$new_row" >> "$table_path$table_name"
 
-    echo "Row inserted successfully."
-
+    zenity --info --title="Success" --text="Row inserted successfully."
 }
 
-update_table $1
+insert_into_table "$1"

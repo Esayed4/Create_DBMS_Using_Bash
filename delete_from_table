@@ -1,0 +1,123 @@
+#!/usr/bin/bash
+
+handel_FK() { 
+    table_name="${1##*/}"
+    table_path=$(dirname "$1")
+    meta_path="$table_path"
+    meta_files="$meta_path/meta_*"
+    delete_file="$table_path/delete_tmp"
+    
+    for meta_table in $meta_files; do
+        col_num=$(grep -w "FOREIGN KEY REFERENCES $table_name" "$meta_table" 2>/dev/null | \
+                  awk -F',' '{print $1}' | grep -o '[0-9]\+')
+        
+        if [[ -n "$col_num" ]]; then
+            tablename="${meta_table##*/}"
+            tablename="${tablename#*_}"
+            
+            awk -v col="$col_num" -v del_file="$delete_file" '
+                BEGIN {
+                    FS = OFS = ","
+                    while ((getline line < del_file) > 0) {
+                        delete_vals[line] = 1
+                    }
+                    close(del_file)
+                }
+                {
+                    if (NR!=1 && $col in delete_vals)
+                        $col = ""
+                    print $0
+                }' "$table_path/$tablename" > "$table_path/tmpfk" && \
+                mv "$table_path/tmpfk" "$table_path/$tablename"
+        fi
+    done
+}
+
+delete_from_atable() {
+    meta_path="$1"
+    table_path="$1/"
+    
+    # Get table name
+    table_name=$(zenity --entry \
+        --title="Delete from Table" \
+        --text="Enter table name:" \
+        --width=400 --height=150)
+    
+    if [[ -z "$table_name" ]]; then
+        zenity --error --text="Error: Table name is required." --title="Error"
+        return 1
+    fi
+
+    if [[ ! -f "$table_path$table_name" ]]; then
+        zenity --error --text="Error: Table '$table_name' does not exist." --title="Not Found"
+        return 1
+    fi
+
+    # Get column name
+    column_name=$(zenity --entry \
+        --title="Delete Condition" \
+        --text="Enter column name for delete condition:" \
+        --width=400 --height=150)
+    
+    if [[ -z "$column_name" ]]; then
+        zenity --error --text="Column name is required." --title="Error"
+        return 1
+    fi
+
+    col_num=$(tail -n +7 "$meta_path/meta_$table_name" | \
+              awk -F',' -v col="$column_name" '$2 == col {print NR}')
+
+    if [[ -z "$col_num" ]]; then
+        zenity --error --text="Cannot find column '$column_name' in table '$table_name'." --title="Column Not Found"
+        return 1
+    fi
+
+    # Get delete value
+    value_to_delete=$(zenity --entry \
+        --title="Delete Value" \
+        --text="Enter value to delete rows by:" \
+        --width=400 --height=150)
+    
+    if [[ -z "$value_to_delete" ]]; then
+        zenity --error --text="Value is required." --title="Error"
+        return 1
+    fi
+
+    # Confirmation
+    if zenity --question \
+        --title="Confirm Delete" \
+        --text="Delete rows from '$table_name' where '$column_name' = '$value_to_delete'?\nThis cannot be undone!" \
+        --width=450 --height=150; then
+        
+        # Filter rows
+        awk -v col="$col_num" -v val="$value_to_delete" '
+        BEGIN { FS = OFS = "," }
+        { if (NR == 1 || $col != val) print $0 }
+        ' "$table_path$table_name" > "$table_path/tmp"
+        
+        PK_num=$(grep -w "PRIMARY KEY" "$meta_path/meta_$table_name" | \
+                 awk -F',' '{print $1}' | grep -o '[0-9]\+')
+        
+        if [[ -z "$PK_num" ]]; then
+            mv "$table_path/tmp" "$table_path$table_name"
+            zenity --info --text="Rows deleted successfully (no FK handling)." --title="Success"
+            return 0
+        fi
+        
+        # Get deleted PKs
+        awk -v col_num="$col_num" -v value="$value_to_delete" '
+        BEGIN { FS = OFS = "," }
+        { if (NR != 1 && $col_num == value) print $'"$PK_num"' }
+        ' "$table_path$table_name" > "$table_path/delete_tmp"
+        
+        mv "$table_path/tmp" "$table_path$table_name"
+        handel_FK "$table_path$table_name"
+        
+        rm -f "$table_path/delete_tmp"
+        zenity --info --text="Rows deleted and FKs updated successfully." --title="Success"
+    else
+        zenity --info --text="Delete operation cancelled." --title="Cancelled"
+    fi
+}
+
+delete_from_atable "$1"

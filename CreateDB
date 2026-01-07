@@ -1,30 +1,44 @@
-#! /usr/bin/bash
+#!/usr/bin/bash
 
 create_db() {
-    read -p "Enter database name: " dbname
+    # Get database name with Zenity input dialog
+    dbname=$(zenity --entry \
+        --title="Create Database" \
+        --text="Enter database name:" \
+        --width=400 --height=150)
 
+    # Check if user cancelled (empty input)
     if [[ -z "$dbname" ]]; then
-        echo "Database name cannot be empty."
+        zenity --error --text="Operation cancelled." --title="Error"
         return
     fi
 
-
-    if [[ ! "$dbname" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then 
-        echo "Invalid name."
+    # Validate name format
+    if [[ ! "$dbname" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then
+        zenity --error \
+            --text="Invalid name.\nMust start with letter, contain only letters, numbers, underscores." \
+            --title="Invalid Name"
         return
     fi
 
-    dbname=`whoami`"_"$dbname
-    if [[ -d "./DBs/$dbname" ]]; then
-        echo "Database already exists."
-        return
-    fi
-	
-
+    # Prefix with username
+    prefixed_dbname=$(whoami)_$dbname
     
-    mkdir "./DBs/$dbname"
-    chmod 770 "./DBs/$dbname"
-    echo "Database $dbnameS created successfully."
+    # Check if exists
+    if [[ -d "./DBs/$prefixed_dbname" ]]; then
+        zenity --error \
+            --text="Database '$prefixed_dbname' already exists." \
+            --title="Database Exists"
+        return
+    fi
+
+    # Create database
+    mkdir "./DBs/$prefixed_dbname"
+    chmod 770 "./DBs/$prefixed_dbname"
+    
+    zenity --info \
+        --text="Database '$prefixed_dbname' created successfully." \
+        --title="Success"
 }
 
 create_db
