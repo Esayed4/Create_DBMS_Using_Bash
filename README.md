@@ -80,7 +80,7 @@ sudo apt-get install zenity
 
 2. Make the main script executable:
 ```bash
-chmod +x main
+chmod +x *
 ```
 
 
