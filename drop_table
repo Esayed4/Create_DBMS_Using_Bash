@@ -1,0 +1,43 @@
+#! /usr/bin/env bash
+
+delete_table() {
+    read -p "Enter the table name to delete: " table_name
+    meta_path=$1
+    meta_files="$meta_path/meta_*"
+    table_path=$1"/"
+    if [[ -z "$table_name" ]]; then
+        echo "Error: Table name is required."
+        return 1
+    fi
+
+    if [[ ! -f "$table_path$table_name" ]]; then
+        echo "Error: Table '$table_name' does not exist."
+        return 1
+    fi
+
+    
+    for meta_tables in $meta_files; do
+
+        echo "Processing file: $meta_tables"
+        col_num=$(grep -w "FOREIGN KEY REFERENCES $table_name" "$meta_tables" | awk -F',' '{print $1}' | grep -o '[0-9]\+')
+        echo "$col_num" 
+
+        if [[ ! -z "$col_num" ]] then
+            echo "Cannot delete table '$table_name' as it is referenced by foreign key in table "${meta_tables#*_}
+            return 1
+        fi
+
+       
+
+        
+    done
+
+
+
+    rm -r "$table_path$table_name"
+    rm -r "$meta_path/meta_$table_name"
+    echo "Table '$table_name' deleted successfully."
+    return 0
+}
+
+delete_table $1

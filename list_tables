@@ -1,0 +1,7 @@
+#! /usr/bin/bash
+list_tables(){
+		table_path=$1					#here
+		echo "Available tables:"
+		ls $table_path | grep -v '^meta_'
+		}
+list_tables

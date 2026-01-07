@@ -1,0 +1,50 @@
+#! /usr/bin/bash
+
+Connect_DB(){
+      DBPath="./DBs/"
+      user=`whoami`
+      read -p "enter DB name : " dbname;
+
+#  check if he owns the same db     
+	if [[ -d $DBPath/$user"_"$dbname ]]
+		then 
+			echo 'knew you are connected to db :' $dbname
+			db_path=$DBPath/$user"_"$dbname        
+			echo $(pwd)
+
+                select choice in createtable  InsertInto SelectFrom  DropTable DeleteFrom UpdateTable BackToMainMenu
+                do 
+                    
+                    case $choice in
+                        "createtable")
+					./5_create_table   $db_path
+                             ;;
+                        "InsertInto")
+					./insert  $db_path
+                             ;;
+                        "SelectFrom")
+					./select  $db_path
+                             ;;
+                        "DropTable")
+                            ./drop_table  $db_path
+                            ;;
+                        "DeleteFrom")
+                            ./delete_from_atable  $db_path
+                            ;;
+                        "UpdateTable")
+                            ./update_table $db_path
+                            ;;
+                        "Exit")
+                            echo "Exiting..."
+                            break	
+                            ;;
+                    esac
+                done
+	
+
+		
+	fi
+
+}
+
+Connect_DB

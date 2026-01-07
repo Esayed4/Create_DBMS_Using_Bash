@@ -1,0 +1,28 @@
+#! /usr/bin/bash
+    
+DropDB() { 
+    DBPath="./DBs"
+    user=$(whoami)
+    read -p "Enter DB name: " dbname
+
+    fullPath="$DBPath/${user}_${dbname}"
+
+    if [[ -d "$fullPath" ]]; then
+        read -p "Are you sure you want to delete DB $dbname ? (y/n): " delete
+
+        if [[ "$delete" == "y" ]]; then
+            rm -r "$fullPath"
+            echo "Database deleted."
+        else
+            echo "Operation cancelled."
+        fi
+    else
+        echo "I cannot find this DB."
+    fi
+}
+
+
+
+DropDB
+
+

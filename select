@@ -1,0 +1,86 @@
+#!/bin/bash
+
+select_data() {
+    table_path=$1
+    echo "=== SELECT DATA ==="
+    
+    while true; do
+        # Show tables
+        tables=$(ls "$table_path" | grep -v '^meta_')           #here
+        [[ -z "$tables" ]] && { echo "No tables!"; return 1; }
+        
+        echo "Available tables to select from:"
+        echo "$tables"
+        echo
+        
+        read -p "Table name: " table
+        [[ ! -f "$table_path"/"$table" ]] && { echo "Table not found!"; continue; }   #here
+        
+        # Simple menu
+        echo
+        echo "1 - select all data"
+        echo "2 - select specific row by PRIMARY KEY"
+        echo
+        read -p "Choice (1 or 2): " choice
+        
+        if [[ "$choice" == "1" ]]; then
+            # Show all
+            echo
+            echo "=== $table ==="
+            cat -n "$table_path"/"$table"             #here
+            
+        elif [[ "$choice" == "2" ]]; then
+            # Find by PK
+            meta="$table_path"/"meta_$table"              #here
+            if [[ ! -f "$meta" ]]; then
+                echo "No metadata - cannot find PK"
+                continue
+            fi
+            
+            # Get PK column
+            pk=$(awk -F',' '$4~/PRIMARY KEY/{print $2; exit}' "$meta" 2>/dev/null)
+            if [[ -z "$pk" ]]; then
+                echo "No PRIMARY KEY in this table!"
+                continue
+            fi
+            
+            echo
+            echo "Find by $pk:"
+            read -p "Enter value of the PRIMARY KEY: " val
+            
+            # Find PK position
+            header=$(head -1 "$table_path"/"$table")                #here
+            IFS=',' read -r -a cols <<< "$header"
+            pos=0
+            for i in "${!cols[@]}"; do
+                [[ "${cols[i]}" == "$pk" ]] && { pos=$((i+1)); break; }
+            done
+            
+            # Search
+            echo
+            # Find which line has our value in the right column
+            line_num=$(awk -F',' -v col="$pos" -v val="$val" '$col == val {print NR}' "$table_path"/"$table")       #here
+
+            if [[ -n "$line_num" ]]; then
+                echo "Result:"
+                echo "$header"
+                echo "--------"
+                # Get the specific line
+                sed -n "${line_num}p" "$table_path"/"$table"
+            else
+                echo "Not found!"
+            fi
+            
+            
+        else
+            echo "Invalid choice! Only 1 or 2."
+            return 1
+        fi
+        
+        echo
+        read -p "Select another? (y/n): " more
+        [[ "$more" == "y" ]] || break
+    done
+}
+
+select_data $1

@@ -1,0 +1,29 @@
+#!/usr/bin/bash
+
+ListDBs() {
+    path="./DBs"
+    user=$(whoami)
+    myGroups=`echo $(groups $user) | cut -d: -f2`
+
+    echo "Directories you are in the group of:"
+    echo $myGroups
+    for dir in "$path"/*; do
+	i=0
+        if [[ -d "$dir" ]]; then
+            # Get the group of the directory
+            dirGroup=$(ls -ld "$dir" | tr -s ' ' | cut -d' ' -f4)
+
+        	for groupg in $myGroups;
+		do
+			if [[ $groupg == $dirGroup  ]]
+				then
+					print=$(basename "$dir" | cut -d'_' -f2)
+					echo  $print '------>  group of : '  $groupg
+			fi 
+		done
+        fi
+    done
+
+}
+
+ListDBs

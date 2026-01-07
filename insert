@@ -1,0 +1,124 @@
+insert_into_table() {
+
+    meta_path="$1"
+    table_path="$1/"
+
+    read -p "Enter the table name to insert in: " table_name
+
+    if [[ -z "$table_name" ]]; then
+        echo "Error: Table name is required."
+        return 1
+    fi
+
+    if [[ ! -f "$table_path$table_name" ]]; then
+        echo "Error: Table '$table_name' does not exist."
+        return 1
+    fi
+
+    col_count=$(tail -n +7 "$meta_path/meta_$table_name" | wc -l)
+    declare -a row_values
+
+
+
+
+
+    for ((i=1; i<=col_count; i++)); do
+
+        # Read metadata line
+        line=$(sed -n "$((6 + i))p" "$meta_path/meta_$table_name")
+
+        col_name=$(echo "$line" | cut -d',' -f2)
+        data_type=$(echo "$line" | cut -d',' -f3)
+        constraint=$(echo "$line" | cut -d',' -f4)
+
+        read -p "Enter the value of $col_name: " new_value
+
+        ############ TYPE CHECK ############
+        if [[ "$data_type" == "int" && ! "$new_value" =~ ^[0-9]*$ ]]; then
+            echo "Data type of the column is INT. Please enter a valid integer."
+            return 0
+        fi
+
+        ############ COMMA CHECK ############
+        if [[ "$new_value" == *","* ]]; then
+            echo "Value cannot contain comma."
+            return 0
+        fi
+
+        ############ PRIMARY KEY ############
+        if [[ "$constraint" == *"PRIMARY KEY"* ]]; then
+            if [[ -z "$new_value" ]]; then
+                echo "PK cannot be NULL"
+                return 0
+            fi
+
+            repeat=$(awk -F',' -v col="$i" -v val="$new_value" '
+                NR > 1 && $col == val { print NR }
+            ' "$table_path$table_name")
+
+            if [[ -n "$repeat" ]]; then
+                echo "Duplication is not allowed (PRIMARY KEY)."
+                return 0
+            fi
+        fi
+
+        ############ FOREIGN KEY ############
+        # FOREIGN KEY check
+        if [[ "$constraint" == *"FOREIGN KEY REFERENCES"* && ! -z "$new_value" ]]; then
+            
+            # extract referenced table name
+            pk_table_name=$(echo "$constraint" | awk '{print $4}' | cut -d'(' -f1)
+
+            # extract PK column index (your method EXACTLY as you wrote it)
+            pk_col_num_t2=$(
+                grep -w "PRIMARY KEY" "${table_path}meta_${pk_table_name}" \
+                | awk -F',' '{print $1}' | grep -o '[0-9]\+'
+            )
+
+            # check if the value exists in the target PK table
+            search_for_new_val_in_pktable=$(
+                awk -F',' -v col="$pk_col_num_t2" -v val="$new_value" '
+                    NR > 1 && $col == val { print NR }
+                ' "${table_path}${pk_table_name}"
+            )
+
+            if [[ -z "$search_for_new_val_in_pktable" ]]; then
+                echo "Foreign Key Error: value '$new_value' does not exist in table '$pk_table_name'"
+                return 0
+            fi
+        fi
+        ############ NOT NULL ############
+        if [[ "$constraint" == *"NOT NULL"* && -z "$new_value" ]]; then
+            echo "This column does not allow NULL value."
+            return 0
+        fi
+
+        ############ UNIQUE ############
+        if [[ "$constraint" == *"UNIQUE"* && ! -z "$new_value" ]]; then
+
+            repeat=$(awk -F',' -v col="$i" -v val="$new_value" '
+                NR > 1 && $col == val { print NR }
+            ' "$table_path$table_name")
+
+            if [[ -n "$repeat" ]]; then
+                echo "Duplication is not allowed (UNIQUE)."
+                return 0
+            fi
+        fi
+
+        row_values[$i]="$new_value"
+
+    done
+
+
+    ########### BUILD FINAL ROW ###########
+    new_row=$(printf "%s," "${row_values[@]}")
+    new_row=${new_row%,}   # remove last comma
+
+    echo "$new_row" >> "$table_path$table_name"
+
+    echo "Row inserted successfully."
+
+}
+
+update_table $1

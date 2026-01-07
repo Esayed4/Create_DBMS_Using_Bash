@@ -1,0 +1,30 @@
+#! /usr/bin/bash
+
+create_db() {
+    read -p "Enter database name: " dbname
+
+    if [[ -z "$dbname" ]]; then
+        echo "Database name cannot be empty."
+        return
+    fi
+
+
+    if [[ ! "$dbname" =~ ^[A-Za-z][A-Za-z0-9_]*$ ]]; then 
+        echo "Invalid name."
+        return
+    fi
+
+    dbname=`whoami`"_"$dbname
+    if [[ -d "./DBs/$dbname" ]]; then
+        echo "Database already exists."
+        return
+    fi
+	
+
+    
+    mkdir "./DBs/$dbname"
+    chmod 770 "./DBs/$dbname"
+    echo "Database $dbnameS created successfully."
+}
+
+create_db

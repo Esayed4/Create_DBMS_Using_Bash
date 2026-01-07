@@ -1,0 +1,295 @@
+#! /usr/bin/bash
+
+handel_pk() {
+    # args: pk_num  RowNum  new_value  table_full_path 
+    echo 1
+    hpk_num="$1"
+    hrow_num="$2"
+    hnew_value="$3"
+    htable_full="$4"
+	echo 2
+    htable_path=$(dirname "$htable_full")"/"
+    htable_name="${htable_full##*/}"
+echo 3
+    # ----- 1. Check NULL -----
+    if [[ -z "$hnew_value" ]]; then
+        echo "PK cannot be NULL"
+        return 0
+    fi
+
+    # ----- 2. Check duplicate -----
+    echo 4
+    repeat=$(awk -F',' -v col="$hpk_num" -v val="$hnew_value" '
+        NR > 1 && $col == val { print NR }
+    ' "$htable_full")
+
+    if [[ -n "$repeat" ]]; then
+        echo "Duplication not allowed for PK"
+        return 0
+    fi
+
+    
+    echo 5
+    # ----- 1. Get old value -----
+    echo 'get old value'
+    old_value=$(awk -F',' -v col="$hpk_num" -v row="$hrow_num" '
+        NR == row { print $col }
+    ' "$htable_full")
+
+    # ----- 2. Update PK in main table -----
+    awk -F',' -v OFS=',' \
+        -v col="$hpk_num" \
+        -v rn="$hrow_num" \
+        -v newval="$hnew_value" '
+        {
+            if (NR == rn) {
+                $col = newval
+            }
+            print $0
+        }
+    ' "$htable_full" >  $htable_path"temp" && mv $htable_path"temp" "$htable_full"
+    
+ 
+    echo "PK updated successfully."
+
+    # ----- 3. Update FK in other tables -----
+    for meta_tables in "$htable_path"meta_*; do
+        echo "Processing meta file: $meta_tables"
+
+    
+
+        # Extract FK column referencing this table
+        col_num=$(grep -w "FOREIGN KEY REFERENCES ${htable_name}" "$meta_tables" \
+                 | awk -F',' '{print $1}' | grep -o '[0-9]\+')
+
+        echo "FK column number: $col_num"
+
+        if [[ -n "$col_num" ]]; then
+            meta_name="${meta_tables##*/}"
+            update_tablename=${meta_name#*_}
+		
+            awk -F',' -v OFS=',' \
+                -v col="$col_num" \
+                -v o_value="$old_value" \
+                -v n_value="$hnew_value" '
+                {
+                    if (NR != 1 && $col == o_value)
+                        $col = n_value
+                    print $0
+                }
+            ' "$htable_path$update_tablename" > $htable_path"tmpfk" && mv $htable_path"tmpfk" "$htable_path$update_tablename"
+
+            echo "→ Updated FK in table: $update_tablename"
+        fi
+    done
+}
+
+
+
+
+handel_fk(){
+# args: col_num row_num new_value table_full pk_table
+fcol_num="$1"
+frow_num="$2"
+fnew_value="$3"
+ftable_full="$4"
+fpk_table="$5"
+
+
+ 
+echo "Function start..."
+
+ftable_path="$(dirname "$ftable_full")/"
+ftable_name="${ftable_full##*/}"
+
+# ----------- IF NEW VALUE IS NULL -----------
+if [[ -z "$fnew_value" ]]; then
+    echo "Setting FK to NULL..."
+
+    awk -F',' -v OFS=',' \
+        -v col="$fcol_num" \
+        -v rn="$frow_num" '
+        {
+            if (NR == rn)
+                $col = ""
+            print $0
+        }
+    ' "$ftable_full" > $ftable_path"tmpfk" && mv $ftable_path"tmpfk" "$ftable_full"
+
+    return 0
+fi
+
+      # ----- search for the new value in the PK table-----
+      
+      # 1. Get PK column number from metadata
+pk_col_num_t2=$(
+    grep -w "PRIMARY KEY" "${ftable_path}meta_${fpk_table}" \
+    | awk -F',' '{print $1}' | grep -o '[0-9]\+'
+)
+
+ 
+# 2. Search for the new FK value in the PK table
+search_for_new_val_in_pktable=$(
+    awk -F',' -v col="$pk_col_num_t2" -v val="$fnew_value" '
+        NR > 1 && $col == val { print NR }
+    ' "${ftable_path}${fpk_table}"
+)
+
+# 3. Check if not found
+if [[ -z "$search_for_new_val_in_pktable" ]]; then
+    echo "I cannot find value $fnew_val in table '$fpk_table'"
+    return 0
+fi
+
+echo 'i found the new value  in pk`s table '
+
+
+awk -F',' -v OFS=',' \
+    -v col="$fcol_num" \
+    -v rn="$frow_num" \
+    -v val="$fnew_value" '
+{
+    if (NR == rn) {
+        $col = val
+    }
+    print $0
+}
+' "$ftable_full" > $ftable_path"tmpfk" && mv $ftable_path"tmpfk" "$ftable_full"
+
+
+
+
+
+}
+
+
+
+update_table() {
+   # Ask user for table name
+    read -p "Enter the table name to update: " table_name
+
+    meta_path="$1"
+    table_path="$1""/"
+
+    # Validate table name
+    if [[ -z "$table_name" ]]; then
+        echo "Error: Table name is required."
+        return 1
+    fi
+
+    # Check if table file exists
+    if [[ ! -f "$table_path$table_name" ]]; then
+        echo "Error: Table '$table_name' does not exist."
+        return 1
+    fi
+
+
+    # Ask for column to update
+    read -p "Enter the column you want to update: " column_name
+
+    # Extract the column number (line number from metadata)
+    col_num=$(tail -n +7 "$meta_path/meta_$table_name" \
+              | awk -F',' -v col="$column_name" '$2 == col {print NR}')
+
+    echo "Column number: $col_num"
+
+    if [[ -z "$col_num" ]]; then
+        echo "Cannot find column '$column_name' in table '$table_name'"
+        return 1
+    fi
+    data_type=$(sed -n "$((6 + col_num))p" "$meta_path/meta_$table_name" | cut -d',' -f3)
+    read -p "Enter the new value: " new_value
+    
+    if [[ "$data_type" == "int" && ! "$new_value" =~ ^[0-9]*$ ]]; then
+   	 echo "Data type of the column is INT. Please enter a valid integer."
+   	 return 0
+	fi
+	
+	
+	
+	
+	
+	
+    constraint=$(sed -n "$((6 + col_num))p" "$meta_path/meta_$table_name" | cut -d',' -f4)
+    echo "Constraint: $constraint"
+ 
+ 
+ 
+    # Get primary key column number
+    PK_num=$(grep -w "PRIMARY KEY" "$meta_path/meta_$table_name" \
+             | awk -F',' '{print $1}' | grep -o '[0-9]\+')
+
+    echo "PK is: $PK_num"
+
+    if [[ -z "$PK_num" ]]; then
+        echo "Cannot update a table without a PRIMARY KEY. (Feature not supported yet)"
+        return 1
+    fi
+
+    # Ask which row (PK value) to update
+    read -p "Enter the row's PK you want to update: " pk_value
+
+    # Find the row number of that PK
+    row_number=$(awk -F',' -v col="$PK_num" -v pk="$pk_value" \
+                 '$col==pk && NR>1 {print NR}' "$table_path$table_name")
+
+    echo "Row to update is number: $row_number"
+ 
+    if [[ -z "$row_number" ]]; then
+        echo "No row exists with primary key value '$pk_value'"
+        return 1
+    fi
+
+
+ 
+	if [[ "$col_num" == "$PK_num" ]]; then
+   		 echo 'solving pk constrains'
+    		 handel_pk "$PK_num" "$row_number" "$new_value" "$table_path$table_name" 
+    		 return 0
+	fi
+	
+	if [[ "$constraint" == *"FOREIGN KEY REFERENCES"* ]]; then
+  
+	    	pk_table_name=$(echo "$constraint" | awk '{print $4}' | cut -d'(' -f1)
+	    	handel_fk "$col_num" "$row_number" "$new_value" "$table_path$table_name" "$pk_table_name"
+	    	return 0
+
+	fi
+ 	
+ 	if [[ "$constraint" == *"NOT NULL"* && -z $new_value ]] then
+ 		echo 'the column does not allow null value'
+ 		return 0
+ 	fi
+ 	
+ 	if [[ "$constraint" == *"UNIQUE"* && ! -z $new_value ]] then
+ 	
+ 		repeat=$(awk -F',' -v col="$col_num" -v val="$new_value" '
+      			  NR > 1 && $col == val { print NR }
+  			  ' "$table_path$table_name")
+
+    		if [[ -n "$repeat" ]]; then
+     		   echo "Duplication is not allowed"
+      		  return 0
+      		fi
+ 	fi
+ 	
+ 	
+ 	awk -F',' -v OFS=',' \
+	    -v col="$col_num" \
+	    -v rn="$row_number" \
+	    -v val="$new_value" '
+	{
+	    if (NR == rn) {
+		$col = val
+	    }
+	    print $0
+	}
+	' "$table_path$table_name" > $table_path"tmpfk" && mv $table_path"tmpfk" "$table_path$table_name"
+    
+    
+
+   
+ 
+
+}
+update_table $1

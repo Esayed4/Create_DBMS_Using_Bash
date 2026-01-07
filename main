@@ -1,0 +1,37 @@
+#! /usr/bin/bash
+
+
+
+if [[ ! -d "./DBs" ]]; then
+    echo "Creating DBs directory..."
+    mkdir  DBs 
+    echo "DBs created"; 
+    chmod 777 ./DBs
+else
+	echo "i found the DBMS Dir"
+fi
+
+
+select choice in CreateDB
+do 
+	 
+	case $choice in
+		"CreateDB")
+			./CreateDB
+			;;
+		"ConnectDB")
+			./ConnectDB
+			;;
+		"ListDB")
+			./ListDB
+			;;
+		"DropDB")
+			./DropDB
+			;;
+		"Exit")
+			echo "Exiting..."
+			break	
+			;;
+	esac
+done
+
