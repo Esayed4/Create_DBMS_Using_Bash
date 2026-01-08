@@ -174,5 +174,5 @@ Stay tuned for updates!
   - Linkedin : https://www.linkedin.com/in/esayed-/
 - **Ahmed Ali**  
   - Github   :
-  - Linkedin :
+  - Linkedin : https://www.linkedin.com/in/ahmed-ali29/
 
