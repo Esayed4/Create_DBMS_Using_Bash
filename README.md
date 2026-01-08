@@ -6,10 +6,7 @@ This project allows you to **create, update, delete, and query tables** with pro
 This DBMS supports multiple users, allowing different users to work with the system independently.
 
 ---
-## Demo
-https://drive.google.com/file/d/1NZSrVM-1FRV8_EQjiLAKV2m0NyZpoeRJ/view?usp=sharing
-
----
+ 
 
 ## Features
 
