@@ -3,7 +3,8 @@
 A **Database Management System (DBMS)** implemented entirely in **Bash**, with a **Zenity-based GUI** for easier interaction.  
 This project allows you to **create, update, delete, and query tables** with proper **validation** and **foreign key support**.
 
-This DBMS supports multiple users, allowing different users to work with the system independently while maintaining data integrity and access isolation.
+This DBMS supports multiple users, allowing different users to work with the system independently.
+
 ---
 
 ## Features
@@ -114,6 +115,7 @@ chmod +x *
       - Update or delete rows
     
       All data is stored as CSV files inside your database folder, with metadata files to track structure and constraints.
+   
       **Note**: For multi-user support, the project must be placed in a directory accessible to all users (e.g., /home/DBMS_GUI).
 ----
 
