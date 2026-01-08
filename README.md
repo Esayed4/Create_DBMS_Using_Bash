@@ -23,6 +23,26 @@ This DBMS supports multiple users, allowing different users to work with the sys
 - Multi-table support with metadata management  
 
 ---
+
+
+## Multi-User Handling Feature
+
+This DBMS supports multiple users, allowing different users to work with the system independently while maintaining data integrity and access isolation.
+
+### User Authentication
+
+  - Each user has a unique username
+  - Users must log in before performing any database operations
+  - User sessions are handled separately
+
+### User-Specific Workspaces
+  - Every user operates within their own database directory
+  - Tables created by one user are not accessible by other users
+  - This ensures data isolation and privacy
+
+---
+
+
 ## Demonstration: Handling Relationships Between Tables (PK & FK)
 
 This project supports **foreign key relationships** between tables and enforces proper constraints.  
@@ -58,22 +78,7 @@ Here’s an example workflow with **two tables**:
 - This ensures **referential integrity** between tables while maintaining flexibility for updates and deletions.  
 - GUI prompts guide the user when an action violates FK constraints.
 
----
 
-## Multi-User Handling Feature
-
-This DBMS supports multiple users, allowing different users to work with the system independently while maintaining data integrity and access isolation.
-
-### User Authentication
-
-  - Each user has a unique username
-  - Users must log in before performing any database operations
-  - User sessions are handled separately
-
-### User-Specific Workspaces
-  - Every user operates within their own database directory
-  - Tables created by one user are not accessible by other users
-  - This ensures data isolation and privacy
 
 
 ---
